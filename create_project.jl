@@ -1,7 +1,8 @@
 using Pkg
 
-name = length(ARGS) > 0 ? ARGS[1] : "Example"
-author = length(ARGS) > 1 ? ARGS[2] : "Author"
+PROJECT = length(ARGS) > 0 ? ARGS[1] : "Example"
+AUTHORS = length(ARGS) > 1 ? ARGS[2] : "Author"
+GITHUB_REPO = length(ARGS) > 2 ? ARGS[3] : ""
 
 ##################################################
 
@@ -66,7 +67,7 @@ pause"),
 
 PROJECT = ARGS[1]
 AUTHORS = ARGS[2]
-GITHUP_REPO = ARGS[3] #https://github.com/(User)/(Project)
+GITHUB_REPO = ARGS[3] #https://github.com/(User)/(Project)
 PRETTYURLS = length(ARGS)>=4 ? ARGS[4] == \"true\" : false
 
 # required
@@ -204,7 +205,7 @@ makedocs(
   format    = Documenter.HTML(prettyurls = PRETTYURLS),
   sitename  = PROJECT,
   authors   = AUTHORS,
-  #html_canonical = GITHUP_REPO,
+  #html_canonical = GITHUB_REPO,
   pages = Any[ # Compat: `Any` for 0.4 compat
       \"Home\" => \"index.md\",
       \"Manual\" => md_manuals,
@@ -217,20 +218,20 @@ makedocs(
 "),
 
 ("make_docs.bat","@echo off
-\"C:/Users/%username%/AppData/Local/Julia-1.1.0/bin/julia.exe\" \"docs/make.jl\" \"$name\" \"$author\"
+\"C:/Users/%username%/AppData/Local/Julia-1.1.0/bin/julia.exe\" \"docs/make.jl\" \"$PROJECT\" \"$AUTHORS\" \"$GITHUB_REPO\"
 pause")
 ]
 
 ##################################################
 
 # create project
-if !isdir(name)
-  @info "Create Project $name..."
-  eval(Meta.parse("pkg\"generate $name\""))
+if !isdir(PROJECT)
+  @info "Create Project $PROJECT..."
+  eval(Meta.parse("pkg\"generate $PROJECT\""))
   println()
 end
 
-cd(name)
+cd(PROJECT)
 
 # activate project
 pkg"activate ."
