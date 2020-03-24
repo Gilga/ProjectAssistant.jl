@@ -13,11 +13,10 @@ julia = "%LOCALAPPDATA%/Julia-$(string(VERSION))/bin/julia.exe --color=yes"
 
 ##################################################
 
-script_precode = """using Pkg # required
-Pkg.activate(pwd()) # activate this project
+#using Pkg # required
+#Pkg.activate(pwd()) # activate this project
 
-include(abspath(@__DIR__,"log.jl")) # logger
-"""
+script_precode = """include(abspath(@__DIR__,"log.jl"))"""
 
 script_logger = """using Logging, LoggingExtras, Dates 
 
@@ -44,7 +43,7 @@ logger_old = global_logger(logger)
 script_start = """$script_precode
 include(abspath(@__DIR__,"startup.jl")) # environment variables
 file_run = abspath(@__DIR__,"run.jl")
-run(`\$(Sys.BINDIR)/julia.exe --color=yes \$file_run \$ARGS`)# run with changed envs
+run(`\$(Sys.BINDIR)/julia.exe --color=yes --project \$file_run \$ARGS`)# run with changed envs
 """
 
 script_docs = """$script_precode
@@ -204,7 +203,7 @@ begin
   
   ##################################################
 
-  julia = `$(Sys.BINDIR)/julia.exe --color=yes`
+  julia = `$(Sys.BINDIR)/julia.exe --color=yes --project`
 
   pkgs_essential = []
 
