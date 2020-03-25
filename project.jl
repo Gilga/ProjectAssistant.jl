@@ -76,11 +76,26 @@ files = [
 
 ##################################################
 
-is_pkgs_missing(pkgs::AbstractArray) = length(filter(x->!haskey(Pkg.installed(),x),pkgs))>0
+if VERSION.major > 1 || (VERSION.major == 1 && VERSION.minor > 3)
+  function installed() # since Julia 1.4: Pkg.installed() is deprecated
+    deps = Pkg.dependencies()
+    installs = Dict{String, VersionNumber}()
+    for (uuid, dep) in deps
+        dep.is_direct_dep || continue
+        dep.version === nothing && continue
+        installs[dep.name] = dep.version
+    end
+    return installs
+  end
+else
+  installed() = Pkg.installed()
+end
+
+is_pkgs_missing(pkgs::AbstractArray) = length(filter(x->!haskey(installed(),x),pkgs))>0
 
   # update when some packages are not added
 function install_missing_pkgs(pkgs::AbstractArray)
-  missing = filter(x->!haskey(Pkg.installed(),x),pkgs)
+  missing = filter(x->!haskey(installed(),x),pkgs)
   if length(missing)>0
     for pkg in missing Pkg.add(pkg) end
     Pkg.update()
@@ -251,7 +266,7 @@ begin
 
   function get_project_info()
     file_path = abspath(pwd(),"Project.toml")
-    packages = join(sort((x->Pair(x.first,isnothing(x.second) ? "" : string(x.second))).(collect(Pkg.installed()))),"
+    packages = join(sort((x->Pair(x.first,isnothing(x.second) ? "" : string(x.second))).(collect(installed()))),"
   ")
     
     println()
@@ -265,7 +280,7 @@ begin
 
   ##################################################
 
-  is_pkgs_missing(pkgs::AbstractArray) = length(filter(x->!haskey(Pkg.installed(),x),pkgs))>0
+  is_pkgs_missing(pkgs::AbstractArray) = length(filter(x->!haskey(installed(),x),pkgs))>0
 
   function update()
     file_path = abspath(pwd(),"REQUIRE")
@@ -273,7 +288,7 @@ begin
     pkgs_require = filter(x->isnothing(match(r"^#",x)),readlines(file_path))
     @info "Check update..." pkgs_require
 
-    pkgs_list = [x.first for x in Pkg.installed()]
+    pkgs_list = [x.first for x in installed()]
     pkgs_install = filter(x->!in(x,pkgs_list),pkgs_require)
     pkgs_remove = filter(x->!in(x,pkgs_require),pkgs_list)
 
@@ -302,7 +317,7 @@ begin
     end
     
     # update when some packages are not added
-    pkgs_essential_missing = filter(x->!haskey(Pkg.installed(),x),pkgs_project_essential)
+    pkgs_essential_missing = filter(x->!haskey(installed(),x),pkgs_project_essential)
     if length(pkgs_essential_missing)>0
       for pkg in pkgs_essential_missing Pkg.add(pkg) end
     end
