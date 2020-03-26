@@ -1,6 +1,7 @@
 # JuliaProjectTemplate
 
-Uses [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl) + additional scripts to create and run new projects.
+- Julia Version 1.3.1
+- Uses [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl) + additional scripts to create and run new projects.
 
 ## Run script on Linux
 
