@@ -1,4 +1,4 @@
-module JuliaProjectTemplate
+module ProjectAssistant
 
 using Pkg, Dates, Logging, REPL.TerminalMenus, LibGit2
 
@@ -48,8 +48,15 @@ end
 """
 
 script_project = """#!/usr/bin/julia
-using JuliaProjectTemplate
-project_activate()
+installed() = Pkg.installed()
+
+if !haskey(installed(),"ProjectAssistant")
+    Pkg.add("ProjectAssistant")
+    Pkg.update()
+end
+
+using ProjectAssistant
+project_initalize()
 """
 
 batch_project = """@echo off
