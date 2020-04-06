@@ -1,11 +1,15 @@
 # ProjectAssistant.jl
 
-- Created with Julia Version 1.3.1
-- Uses [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl) + additional scripts to create and run new projects.
+- Created with Julia Version 1.3.1.
+- Uses [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl).
 - Additionally can use DrWatson dirs (see [DrWatson.jl](https://github.com/JuliaDynamics/DrWatson.jl)), but package is not required.
+- Uses additional scripts to create and run new projects.
 
 ## Required
-- [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl) + additional scripts to create and run new projects.
+- [PkgTemplates.jl](https://github.com/invenia/PkgTemplates.jl)
+
+## Optional
+- [Documenter.jl](https://github.com/JuliaDocs/Documenter.jl)
 
 ## Run script on Linux
 
