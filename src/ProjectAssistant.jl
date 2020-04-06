@@ -1,67 +1,9 @@
 module ProjectAssistant
 
 using Pkg, Dates, Logging, REPL.TerminalMenus, LibGit2
+using PkgTemplates
 
 export project_initialize, project_activate
-
-##################################################
-
-pkgs_essential = ["PkgTemplates","LoggingExtras","Documenter"]
-pkgs_project_essential = []
-
-##################################################
-
-julia = "%LOCALAPPDATA%/Julia-$(string(VERSION))/bin/julia.exe --color=yes"
-
-##################################################
-
-#using Pkg # required
-#Pkg.activate(pwd()) # activate this project
-
-script_env = """file_env = abspath(pwd(),"ENV") # set environment variables
-if !isfile(file_env) write(file_env,"") end
-for line in readlines(file_env)
-    len = length(line)
-    if iszero(len) || line[1] == '#' continue end
-    env=split(replace(line,"\""=>""),'=')
-    ENV[env[1]] = length(env)>1 ? env[2] : ""
-end
-"""
-
-script_start = """project = Symbol(basename(pwd()))
-include(abspath(@__DIR__,"envs.jl")) # for environments (similiar to startup.jl)
-file_run = abspath(@__DIR__,"run.jl")
-@info "start project \x1b[33m$project\x1b[39m..."
-run(`$(Sys.BINDIR)/julia.exe --color=yes --startup-file=no --project $file_run $ARGS`)
-@info "end project \x1b[33m$project\x1b[39m."
-"""
-
-script_docs = """file_make = abspath(pwd(),"docs","make.jl")
-isfile(file_make) ? include(file_make) : @warn "docs/make.jl does not exist!"  # docs
-"""
-
-script_run = """project = Symbol(basename(pwd()))
-@eval begin
-    using $project
-    $project.main()
-end
-"""
-
-script_project = """#!/usr/bin/julia
-installed() = Pkg.installed()
-
-if !haskey(installed(),"ProjectAssistant")
-    Pkg.add("ProjectAssistant")
-    Pkg.update()
-end
-
-using ProjectAssistant
-project_initalize()
-"""
-
-batch_project = """@echo off
-$julia project.jl
-pause"""
 
 ##################################################
 
@@ -72,6 +14,7 @@ dirs_project = [
     "data",
     "papers",
     "scripts",
+    "project",
 ]
 
 # DrWatson dirs, see https://juliadynamics.github.io/DrWatson.jl/dev/project/
@@ -89,11 +32,12 @@ files_project = [
   ("REQUIRE", ""),
   ("ENV", ""),
   ("project/startup.jl", ""),
-  ("project/env.jl", script_env),
-  ("project/start.jl", script_start),
-  ("project/docs.jl", script_docs),
-  ("project/run.jl", script_run),
-  ("project.bat",batch_project)
+  ("project.bat","@echo off\n%LOCALAPPDATA%/Julia-$(string(VERSION))/bin/julia.exe --color=yes project/project.jl\n"*"pause\n")
+]
+
+copy_files_project = [
+  "project/run.jl",
+  "project/project.jl",
 ]
 
 ##################################################
@@ -129,23 +73,9 @@ function install_missing_pkgs(pkgs::AbstractArray)
     end
 end
 
-# update when some packages are not added
-install_missing_pkgs(pkgs_essential)
-
-using PkgTemplates
-
-#if isfile(abspath(pwd(),"Project.toml")) @goto project
-#else @goto create_project
-#end
-
 ##################################################
 
 function project_initialize()
-    LOGGER = ConsoleLogger(stdout, Logging.Debug)
-
-    ##################################################
-    #@label create_project # default section if Project.toml does not exists
-
     PATH_OLD = pwd() # root dir (all projects)
     PROJECT = length(ARGS) > 0 ? ARGS[1] : ""
     USERNAME = length(ARGS) > 1 ? ARGS[2] : ""
@@ -154,13 +84,13 @@ function project_initialize()
     TEMPLATE = nothing
     DrWatsonDirs = false
 
+    LOGGER = ConsoleLogger(stdout, Logging.Debug)
+
     with_logger(LOGGER) do
         while true
-            global PATH_OLD, PROJECT, USERNAME, PATH_PROJECT, SKIP, TEMPLATE
-
             try
                 if isempty(PROJECT)
-                    print("Project: "); PROJECT = readline()
+                    print("New project name: "); PROJECT = readline()
                     if isempty(PROJECT) throw(ArgumentError("Project name is required")) end
 
                     print("Skip questions and use default settings? [yes]: "); input = readline()
@@ -182,6 +112,8 @@ function project_initialize()
 
             catch ex
                 printError(ex)
+                print("Retry? [yes]: "); input = readline()
+                if input == "n" || input == "no" break end
                 @info "Retry..."
                 continue
             end
@@ -217,29 +149,13 @@ function project_initialize()
 
     if !isdir(PATH_PROJECT) throw(ArgumentError("Cannot write dir $(PATH_PROJECT)!")) end
 
-    # copy this file
-    file_project = abspath(PATH_PROJECT,basename(@__FILE__))
-    if !isfile(file_project) cp(@__FILE__,file_project) end
-
     cd(PATH_PROJECT) # go to project dir
-end
 
-function project_activate(dir=pwd())
-    cd(dir) # go to project dir
+    path_project_files = abspath(PATH_PROJECT,"project")
 
-    ##################################################
-    #@label project # go here only if Project.toml exists
-
-    Pkg.activate(pwd()) # activate this project
-
-    ##################################################
-
-    PROJECT = basename(pwd())
-    PATH_PROJECTFILES = abspath(pwd(),"project")
-
-    if !isdir(PATH_PROJECTFILES)
+    if !isdir(path_project_files)
         @info "create dir project."
-        mkdir(PATH_PROJECTFILES)
+        mkdir(path_project_files)
     end
 
     # write dirs
@@ -256,27 +172,44 @@ function project_activate(dir=pwd())
         end
     end
 
+    git_files = String[]
+
     # write files
     for file in files_project
         name = file[1]
         content = file[2]
-        path_file = abspath(name) #replace(name,"\$DIR_PROJECT"=>PATH_PROJECTFILES)
+        path_file = abspath(name)
         if !isfile(path_file)
             @info "create file $(basename(name))."
-            write(path_file, replace(content,"\$PROJECT"=>PROJECT))
+            write(path_file, content)
+            push!(git_files,path_file)
         end
     end
 
-    ##################################################
+    # copy files
+    for name in copy_files_project
+        path_file = abspath(name)
+        if !isfile(path_file)
+            @info "copy file $(basename(name))."
+            cp(abspath(@__DIR__,"../",name), path_file)
+            push!(git_files,path_file)
+        end
+    end
 
-    julia = `$(Sys.BINDIR)/julia.exe --color=yes --startup-file=no --project`
-    pkgs_essential = []
+    # TODO: add files to existing git repo...
+    # repo = LibGit2.init(PATH_PROJECT) # wrong?
+    # LibGit2.add!(repo,git_files...)
+end
+
+function project_activate(dir=pwd())
+
+    cd(dir) # go to project dir
+    Pkg.activate(pwd()) # activate this project
+    ENV_backup = ENV # backup ENV
 
     ##################################################
 
     function show_menu()
-        if is_pkgs_missing(pkgs_project_essential) update() end # this needs to be done before we use essential packages
-
         options = ["info", "start", "test", "make docs", "update packages", "exit"]
         menu = RadioMenu(options) #, pagesize=6
         selected = 1
@@ -294,13 +227,15 @@ function project_activate(dir=pwd())
                 try
                     if choice == length(options) break
                     elseif choice == 1 get_project_info()
-                    elseif choice == 2 include(abspath(PATH_PROJECTFILES,"start.jl"))
+                    elseif choice == 2 runProject()
                     elseif choice == 3 Pkg.test()
-                    elseif choice == 4 include(abspath(PATH_PROJECTFILES,"docs.jl"))
+                    elseif choice == 4 createDocs()
                     elseif choice == 5 update()
                     end
                 catch ex
                     printError(ex)
+                finally
+                    resetENV()
                 end
             else
                 println("Menu canceled.")
@@ -325,7 +260,47 @@ function project_activate(dir=pwd())
 
     ##################################################
 
-    is_pkgs_missing(pkgs::AbstractArray) = length(filter(x->!haskey(installed(),x),pkgs))>0
+    function resetENV()
+        for (k,v) in ENV
+            if haskey(ENV_backup, k)
+                ENV[k] = ENV_backup[k]
+            end
+        end
+    end
+
+     # set environment variables
+    function readsetENV(file::String = abspath(pwd(),"ENV"))
+        if !isfile(file) write(file,"") end
+        for line in readlines(file)
+            len = length(line)
+            if iszero(len) || line[1] == '#' continue end
+            env=split(replace(line,"\""=>""),'=')
+            ENV[env[1]] = length(env)>1 ? env[2] : ""
+        end
+    end
+
+    ##################################################
+
+    function runProject()
+        project = Symbol(basename(pwd()))
+        path_project = abspath(pwd(),"project")
+        readsetENV()
+        include(abspath(path_project,"startup.jl"))
+        file_run = abspath(path_project,"run.jl")
+        @info "start project \x1b[33m$project\x1b[39m..."
+        run(`$(Sys.BINDIR)/julia.exe --color=yes --startup-file=no --project $file_run $ARGS`)
+        @info "end project \x1b[33m$project\x1b[39m."
+    end
+
+    ##################################################
+
+    function createDocs()
+        file_docs_make = abspath(pwd(),"docs","make.jl")
+        !isfile(file_docs_make) && error("docs/make.jl does not exist!")
+        include(file_docs_make)
+    end
+
+    ##################################################
 
     function update()
         file_path = abspath(pwd(),"REQUIRE")
@@ -362,17 +337,17 @@ function project_activate(dir=pwd())
         end
 
         # update when some packages are not added
-        pkgs_essential_missing = filter(x->!haskey(installed(),x),pkgs_project_essential)
-        if length(pkgs_essential_missing)>0
-            for pkg in pkgs_essential_missing Pkg.add(pkg) end
-        end
+        #pkgs_essential_missing = filter(x->!haskey(installed(),x),pkgs_project_essential)
+        #if length(pkgs_essential_missing)>0
+        #   for pkg in pkgs_essential_missing Pkg.add(pkg) end
+        #end
 
         Pkg.update()
     end
 
     ##################################################
 
-    #include(abspath(PATH_PROJECTFILES,"log.jl")) # logger
+    LOGGER = ConsoleLogger(stdout, Logging.Debug)
 
     with_logger(LOGGER) do
         show_menu()

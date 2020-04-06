@@ -1,4 +1,8 @@
-name = "JLScriptLoader"
-authors = ["Gilga"]
+name = "ProjectAssistant"
+uuid = "77987ae8-a180-5b25-91db-425870cd9302"
+authors = ["Gilga <gilgatx@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PkgTemplates = "14b8a8f1-9102-5b29-a752-f990bacb7fe1"
